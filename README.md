@@ -45,3 +45,5 @@ No known bugs.  Works.
 - Outputting to stderr, except words, so that they can be redirected
 - Code cleanup after finding some suggestions
 - Grammar!
+### 1.2.1
+- Fixed annoying blank space at begining of line
