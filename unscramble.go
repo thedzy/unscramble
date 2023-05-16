@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"github.com/akamensky/argparse"
@@ -19,6 +20,7 @@ type Options struct {
 	ScrambledString string
 	TerminatingChar string
 	WordFile        os.File
+	Limit           int
 	Min             int
 	Max             int
 	DebugLevel      int
@@ -162,7 +164,7 @@ func main() {
 	logger.Info("Found %d words", len(matches))
 	logger.Info("----")
 
-	// Sort the matches
+	// Sort/filter the matches
 	if options.SortMethod == "a" || options.SortMethod == "alpha" {
 		sort.Strings(matches)
 	}
@@ -176,6 +178,9 @@ func main() {
 		sort.SliceStable(matches, func(i, j int) bool {
 			return i > j
 		})
+	}
+	if options.Limit > 0 && options.Limit < len(matches) {
+		matches = matches[0:options.Limit]
 	}
 
 	// Print results
@@ -325,6 +330,26 @@ func getOptions() Options {
 		log.Fatal(err)
 	}
 
+	// Check for stdin
+	var lettersDefault string
+	var lettersRequired = true
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		// Get stdin but filter non A-z characters
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			lettersDefault = scanner.Text()
+			re := regexp.MustCompile("[^A-Za-z]+")
+			lettersDefault = re.ReplaceAllString(scanner.Text(), "")
+			lettersRequired = false
+		}
+
+		if err := scanner.Err(); err != nil {
+			fmt.Println("Error reading stdin", err)
+			lettersRequired = true
+		}
+	}
+
 	// Create parser for parsing the options
 	parser := argparse.NewParser("unscramble", "take some letters and arrange them in different orders and find the words")
 	var version = parser.Flag(
@@ -344,7 +369,8 @@ func getOptions() Options {
 				}
 				return nil
 			},
-			Required: true})
+			Default:  lettersDefault,
+			Required: lettersRequired})
 
 	var terminatingChar = parser.String("t", "terminator",
 		&argparse.Options{
@@ -367,6 +393,10 @@ func getOptions() Options {
 			Help:    "Sort reversed",
 			Default: false,
 		})
+
+	var limit = parser.Int("", "limit",
+		&argparse.Options{
+			Help:    "Limit to x results"})
 
 	var min = parser.Int("", "min",
 		&argparse.Options{
@@ -418,6 +448,7 @@ func getOptions() Options {
 		ScrambledString: *scrambledString,
 		TerminatingChar: *terminatingChar,
 		WordFile:        *wordFile,
+		Limit:           *limit,
 		Min:             *min,
 		Max:             *max,
 		DebugLevel:      *debugLevel,
