@@ -62,9 +62,12 @@ func (l *Logger) Log(level int, v ...interface{}) {
 	endColour := "\u001B[0m"
 
 	if level >= l.level {
-		message := append([]interface{}{colour}, v...)
-		message = append(message, endColour)
-		l.Logger.Println(message...)
+		// Add colour to first element if there is a firs element
+		if len(v) > 0 {
+			str, _ := v[0].(string)
+			v[0] = colour + str + endColour
+		}
+		l.Logger.Println(v...)
 	}
 	return
 }
