@@ -36,3 +36,7 @@ No known bugs.  Works.
 ### 1.0
 - Takes some letter and rearrange them to new words
 - Human readable or json output
+### 1.1
+- Bug fixes, not assuming there is a terminating character on the lines and adding one
+- Adding option to specify existing terminating characters on lines
+- Spelling fixes and code cleanup
