@@ -10,17 +10,19 @@ I decided to try and create something similar to my boggle solver, particularly 
 
 Example:
 ```bash
-% go run /Users/syoung/git2/unscramble/unscramble.go  --letters exmaple --min 5 --max 5
+% go run ./unscramble.go  --letters exmaple --min 5 --max 5
 ```
 ``` ignorelang
- Starting
- Finding words of 5 to 5 length
- Found 4 words
- expel
- maple
- ample
- pelma
- Done
+Starting
+Finding words of 5 to 5 length
+Found 4 words
+----
+expel
+maple
+ample
+pelma
+----
+Done
 ```
 
 Example:
