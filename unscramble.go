@@ -17,6 +17,7 @@ import (
 
 type Options struct {
 	ScrambledString string
+	TerminatingChar string
 	WordFile        os.File
 	Min             int
 	Max             int
@@ -138,7 +139,7 @@ func main() {
 
 	// Load the words into the tree
 	for _, line := range lines {
-		addWord(root, strings.ToLower(line))
+		addWord(root, strings.ToLower(line+"\n"))
 	}
 
 	logger.Debug("Built word tree: %s\n", time.Since(startTime))
@@ -246,19 +247,19 @@ func getVariations(node *Letter, letters string, min int, max int) []string {
 	used := make([]bool, len(letters))
 	builder := strings.Builder{}
 
-	searchVarient(node, letters, used, &builder, &combinations, min, max)
+	searchVariant(node, letters, used, &builder, &combinations, min, max)
 
 	return combinations
 }
 
-func searchVarient(node *Letter, letters string, used []bool, builder *strings.Builder, combinations *[]string, min int, max int) {
+func searchVariant(node *Letter, letters string, used []bool, builder *strings.Builder, combinations *[]string, min int, max int) {
 	// searchVarient: is where I got the idea for this, I was looking to create something like th boggle solver in go
 	//
 	// It takes the first letters and then starts a process for each subsequent letter until we hit the end
 
 	// If the word is in range and if it can be matched fully
 	if builder.Len() >= min && builder.Len() <= max {
-		if searchWord(node, builder.String()+"\r") {
+		if searchWord(node, builder.String()+"\n") {
 			if !inList(*combinations, builder.String()) {
 				*combinations = append(*combinations, builder.String())
 			}
@@ -278,8 +279,8 @@ func searchVarient(node *Letter, letters string, used []bool, builder *strings.B
 		// Keep checking that the word can possibly match
 		// Speeds up search byt not following words that will never be words
 		if searchWord(node, builder.String()) {
-			//print(builder.String() + "\n")
-			searchVarient(node, letters, used, builder, combinations, min, max)
+			//logger.Debug(builder.String() + "\n")
+			searchVariant(node, letters, used, builder, combinations, min, max)
 		}
 
 		used[i] = false
@@ -333,34 +334,39 @@ func getOptions() Options {
 			},
 			Required: true})
 
-	var WordFile *os.File = parser.File("f", "file", os.O_RDWR, 0600,
+	var terminatingChar *string = parser.String("t", "terminator",
+		&argparse.Options{
+			Help:    "Any existing terminating characters ",
+			Default: ""})
+
+	var wordFile *os.File = parser.File("f", "file", os.O_RDWR, 0600,
 		&argparse.Options{
 			Help:    "Words file ",
 			Default: filepath.Join(dir, "collins_scrabble_words_2019.txt")})
 
 	// Output options
-	var SortMethod *string = parser.Selector("s", "sort", []string{"a", "alpha", "l", "len"},
+	var sortMethod *string = parser.Selector("s", "sort", []string{"a", "alpha", "l", "len"},
 		&argparse.Options{
 			Help:    "Sorting method ",
 			Default: nil})
 
-	var SortReverse *bool = parser.Flag("r", "sort-reverse",
+	var sortReverse *bool = parser.Flag("r", "sort-reverse",
 		&argparse.Options{
 			Help:    "Sort reversed",
 			Default: false,
 		})
 
-	var Min *int = parser.Int("", "min",
+	var min *int = parser.Int("", "min",
 		&argparse.Options{
 			Help:    "Length of the smallest word",
 			Default: 0})
 
-	var Max *int = parser.Int("", "max",
+	var max *int = parser.Int("", "max",
 		&argparse.Options{
 			Help:    "Length of the largest word",
 			Default: nil})
 
-	var DebugLevel *int = parser.Int("", "log-level",
+	var debugLevel *int = parser.Int("", "log-level",
 		&argparse.Options{
 			Help: "Set the logging level",
 			Validate: func(args []string) error {
@@ -378,7 +384,7 @@ func getOptions() Options {
 			Default: 20,
 		})
 
-	var JsonOutput *bool = parser.Flag("j", "json",
+	var jsonOutput *bool = parser.Flag("j", "json",
 		&argparse.Options{
 			Help:    "Json output",
 			Default: false})
@@ -398,12 +404,13 @@ func getOptions() Options {
 
 	return Options{
 		ScrambledString: *scrambledString,
-		WordFile:        *WordFile,
-		Min:             *Min,
-		Max:             *Max,
-		DebugLevel:      *DebugLevel,
-		SortMethod:      *SortMethod,
-		SortReverse:     *SortReverse,
-		JsonOutput:      *JsonOutput,
+		TerminatingChar: *terminatingChar,
+		WordFile:        *wordFile,
+		Min:             *min,
+		Max:             *max,
+		DebugLevel:      *debugLevel,
+		SortMethod:      *sortMethod,
+		SortReverse:     *sortReverse,
+		JsonOutput:      *jsonOutput,
 	}
 }
