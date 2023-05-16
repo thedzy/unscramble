@@ -38,6 +38,21 @@ Example:
   "schmelz"
 ]
 ```
+```bash
+echo "aeiouwx" | go run ./unscramble.go --sort l --limit 10 2>/dev/null
+```
+``` ignorelang
+ae
+xi
+ou
+aw
+we
+ax
+wo
+ox
+xu
+ai
+```
 
 ## Why?
 Kinda covered this above, but mostly to try Go
@@ -63,3 +78,6 @@ No known bugs.  Works.
 - Grammar!
 ### 1.2.1
 - Fixed annoying blank space at begining of line
+### 1.3
+- Added stdin
+- Added a limit option
