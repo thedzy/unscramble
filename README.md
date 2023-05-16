@@ -23,6 +23,20 @@ Example:
  Done
 ```
 
+Example:
+```bash
+% go run ./unscramble.go  -l ebcdfghjklmnpqrstvwxz --min 7 -j 2>/dev/null | jq .
+```
+``` json
+[
+  "klephts",
+  "lengths",
+  "phlegms",
+  "pschent",
+  "schmelz"
+]
+```
+
 ## Why?
 Kinda covered this above, but mostly to try Go
 
