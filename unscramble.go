@@ -32,7 +32,7 @@ type Letter struct {
 	Children map[string]*Letter `json:"children,omitempty"`
 }
 
-// Logger
+// Logger construct and functions are defined below
 type Logger struct {
 	*log.Logger
 	level int
@@ -40,7 +40,7 @@ type Logger struct {
 
 func newLogger(prefix string, level int) *Logger {
 	return &Logger{
-		Logger: log.New(os.Stdout, prefix, 0),
+		Logger: log.New(os.Stderr, prefix, 0),
 		level:  level,
 	}
 }
@@ -69,7 +69,6 @@ func (l *Logger) Log(level int, v ...interface{}) {
 	return
 }
 
-// Log functions
 func (l *Logger) VerboseDebug(message string, v ...interface{}) {
 	l.Log(10, fmt.Sprintf(message, v...))
 }
@@ -100,9 +99,6 @@ func main() {
 
 	// Loaf options and start logging
 	options := getOptions()
-	if options.JsonOutput {
-		options.DebugLevel = 40
-	}
 	logger := newLogger("", options.DebugLevel)
 
 	// Debug the options
@@ -118,7 +114,7 @@ func main() {
 	logger.Debug("Debug ON")
 	logger.Info("Starting")
 
-	// Lets track how long tasks take
+	// Let's track how long tasks take
 	startTime := time.Now()
 
 	// Read the word file content
@@ -130,9 +126,9 @@ func main() {
 	logger.Debug("Loaded file: %s\n", time.Since(startTime))
 
 	// Split the content into lines
-	lines := strings.Split(string(content), "\n")
+	lines := splitByAnyHiddenCharacters(string(content))
 
-	// Create a root for the dictionary tree.  Similiar to https://github.com/thedzy/boggle_solver except we generate it live
+	// Create a root for the dictionary tree.  Similar to https://github.com/thedzy/boggle_solver except we generate it live
 	root := &Letter{
 		Children: make(map[string]*Letter),
 	}
@@ -157,9 +153,11 @@ func main() {
 	}
 	logger.Info("Finding words of %d to %d length", options.Min, options.Max)
 	matches := getVariations(root, strings.ToLower(options.ScrambledString), options.Min, options.Max)
-	logger.Info("Found %d words", len(matches))
 
 	logger.Debug("Found matches: %s\n", time.Since(startTime))
+
+	logger.Info("Found %d words", len(matches))
+	logger.Info("----")
 
 	// Sort the matches
 	if options.SortMethod == "a" || options.SortMethod == "alpha" {
@@ -187,13 +185,15 @@ func main() {
 		fmt.Println(string(jsonData))
 	} else {
 		for _, match := range matches {
-			logger.Info(match)
+			//logger.Info(match)
+			fmt.Println(match)
 		}
 	}
 
-	logger.Debug("Printed words: %s\n", time.Since(startTime))
-
+	logger.Info("----")
 	logger.Info("Done")
+
+	logger.Debug("Printed words: %s\n", time.Since(startTime))
 
 }
 
@@ -223,7 +223,7 @@ func searchWord(node *Letter, word string) bool {
 	// This can be used to find partial or complete branches.
 	// Have a terminator to the end of the word differentiates between partial and full
 
-	// If we have exhausted all letters than the search is complete and we have no reached the point where there is no branches left
+	// If we have exhausted all letters than the search is complete, and we have not reached the point where there is no branches left
 	if len(word) == 0 {
 		return true
 	}
@@ -241,9 +241,9 @@ func searchWord(node *Letter, word string) bool {
 func getVariations(node *Letter, letters string, min int, max int) []string {
 	// getVariations: acts like a container to hold the results from the searches.
 	//
-	// It follows the tree untill a new branch is needed and branchss from there
+	// It follows the tree until a new branch is needed and branches from there
 	// the parent node is the parent from the last branch or the root
-	combinations := []string{}
+	var combinations []string
 	used := make([]bool, len(letters))
 	builder := strings.Builder{}
 
@@ -253,7 +253,7 @@ func getVariations(node *Letter, letters string, min int, max int) []string {
 }
 
 func searchVariant(node *Letter, letters string, used []bool, builder *strings.Builder, combinations *[]string, min int, max int) {
-	// searchVarient: is where I got the idea for this, I was looking to create something like th boggle solver in go
+	// searchVariant: is where I got the idea for this, I was looking to create something like th boggle solver in go
 	//
 	// It takes the first letters and then starts a process for each subsequent letter until we hit the end
 
@@ -267,7 +267,7 @@ func searchVariant(node *Letter, letters string, used []bool, builder *strings.B
 		//return
 	}
 
-	// Start looping throught he first letters
+	// Start looping through he first letters
 	for i := 0; i < len(letters); i++ {
 		if used[i] {
 			continue
@@ -302,8 +302,17 @@ func inList(list []string, str string) bool {
 	return false
 }
 
+func splitByAnyHiddenCharacters(input string) []string {
+	//splitByAnyHiddenCharacters: Use regex to split the string by control character
+	//
+	// Now it shouldn't matter what platform you are on
+	//https://pkg.go.dev/regexp/syntax
+	regex := regexp.MustCompile(`[[:cntrl:]]+`)
+	return regex.Split(input, -1)
+}
+
 func getOptions() Options {
-	// getOptions: get the program options.  If any one was a better way, please comment
+	// getOptions: get the program options.  If anyone has a better way, please comment
 	//
 	// I like the way python handles options and this is the best I could find without essentially recreating this
 
@@ -313,7 +322,7 @@ func getOptions() Options {
 		log.Fatal(err)
 	}
 
-	// Options
+	// Create parser for parsing the options
 	parser := argparse.NewParser("unscramble", "take some letters and arrange them in different orders and find the words")
 	var version = parser.Flag(
 		"v", "version",
@@ -321,7 +330,7 @@ func getOptions() Options {
 			Help: "Current version"})
 
 	// Input options
-	var scrambledString *string = parser.String("l", "letters",
+	var scrambledString = parser.String("l", "letters",
 		&argparse.Options{
 			Help: "Letters ",
 			Validate: func(args []string) error {
@@ -334,39 +343,39 @@ func getOptions() Options {
 			},
 			Required: true})
 
-	var terminatingChar *string = parser.String("t", "terminator",
+	var terminatingChar = parser.String("t", "terminator",
 		&argparse.Options{
 			Help:    "Any existing terminating characters ",
 			Default: ""})
 
-	var wordFile *os.File = parser.File("f", "file", os.O_RDWR, 0600,
+	var wordFile = parser.File("f", "file", os.O_RDWR, 0600,
 		&argparse.Options{
 			Help:    "Words file ",
 			Default: filepath.Join(dir, "collins_scrabble_words_2019.txt")})
 
 	// Output options
-	var sortMethod *string = parser.Selector("s", "sort", []string{"a", "alpha", "l", "len"},
+	var sortMethod = parser.Selector("s", "sort", []string{"a", "alpha", "l", "len"},
 		&argparse.Options{
 			Help:    "Sorting method ",
 			Default: nil})
 
-	var sortReverse *bool = parser.Flag("r", "sort-reverse",
+	var sortReverse = parser.Flag("r", "sort-reverse",
 		&argparse.Options{
 			Help:    "Sort reversed",
 			Default: false,
 		})
 
-	var min *int = parser.Int("", "min",
+	var min = parser.Int("", "min",
 		&argparse.Options{
 			Help:    "Length of the smallest word",
 			Default: 0})
 
-	var max *int = parser.Int("", "max",
+	var max = parser.Int("", "max",
 		&argparse.Options{
 			Help:    "Length of the largest word",
 			Default: nil})
 
-	var debugLevel *int = parser.Int("", "log-level",
+	var debugLevel = parser.Int("", "log-level",
 		&argparse.Options{
 			Help: "Set the logging level",
 			Validate: func(args []string) error {
@@ -384,7 +393,7 @@ func getOptions() Options {
 			Default: 20,
 		})
 
-	var jsonOutput *bool = parser.Flag("j", "json",
+	var jsonOutput = parser.Flag("j", "json",
 		&argparse.Options{
 			Help:    "Json output",
 			Default: false})
@@ -396,7 +405,7 @@ func getOptions() Options {
 		os.Exit(1)
 	}
 
-	// Version
+	// Display version number
 	if *version {
 		print("1.0", "\n")
 		os.Exit(0)
