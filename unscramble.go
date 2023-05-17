@@ -23,10 +23,11 @@ type Options struct {
 	Limit           int
 	Min             int
 	Max             int
-	DebugLevel      int
 	SortMethod      string
 	SortReverse     bool
 	JsonOutput      bool
+	Filter          string
+	DebugLevel      int
 }
 
 type Letter struct {
@@ -101,6 +102,8 @@ func (l *Logger) Critical(message string, v ...interface{}) {
 
 // Main
 func main() {
+	// Let's track how long tasks take
+	startTime := time.Now()
 
 	// Loaf options and start logging
 	options := getOptions()
@@ -115,12 +118,11 @@ func main() {
 		fieldValue := field.Interface()
 		logger.Debug("%s: %v", fieldName, fieldValue)
 	}
+	logger.Debug("File: %s", options.WordFile.Name())
+	logger.Debug("%-60s %8.1fms\n", "Loaded options:", float64(time.Since(startTime).Milliseconds()))
 
 	logger.Debug("Debug ON")
 	logger.Info("Starting")
-
-	// Let's track how long tasks take
-	startTime := time.Now()
 
 	// Read the word file content
 	content, err := os.ReadFile(options.WordFile.Name())
@@ -128,7 +130,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logger.Debug("%-25s %8.1fms\n", "Loaded file:", float64(time.Since(startTime).Milliseconds()))
+	logger.Debug("%-15s %-45s%8.1fms\n", "Loaded file:", options.WordFile.Name(), float64(time.Since(startTime).Milliseconds()))
 
 	// Split the content into lines
 	lines := splitByAnyHiddenCharacters(string(content))
@@ -141,10 +143,10 @@ func main() {
 	// Load the words into the tree
 	logger.Info("Loading %s words into dictionary", prettyFormatInt(len(lines)))
 	for _, line := range lines {
-		addWord(root, strings.ToLower(line+"\n"))
+		addWord(root, line)
 	}
 
-	logger.Debug("%-25s %8.1fms\n", "Built word tree:", float64(time.Since(startTime).Milliseconds()))
+	logger.Debug("%-60s %8.1fms\n", "Built word tree:", float64(time.Since(startTime).Milliseconds()))
 
 	// Debugging the tree
 	jsonBytes, err := json.MarshalIndent(root, "", "  ")
@@ -159,17 +161,30 @@ func main() {
 	}
 	logger.Info("Finding words of %d to %d length", options.Min, options.Max)
 	matches := getVariations(root, strings.ToLower(options.ScrambledString), options.Min, options.Max)
-
-	logger.Debug("%-25s %8.1fms\n", "Found matches:", float64(time.Since(startTime).Milliseconds()))
-
+	logger.Debug("%-60s %8.1fms\n", "Found matches:", float64(time.Since(startTime).Milliseconds()))
 	logger.Info("Found %d words", len(matches))
-	logger.Info("----")
 
 	// Sort/filter the matches
+	if len(options.Filter) != 0 {
+		var filteredMatches []string
+
+		re := regexp.MustCompile(options.Filter)
+		for _, match := range matches {
+			if re.MatchString(match) {
+				filteredMatches = append(filteredMatches, match)
+			} else {
+				logger.VerboseDebug(match)
+			}
+		}
+		matches = filteredMatches
+		logger.Debug("Applied filter %s", options.Filter)
+	}
+
 	if options.SortMethod == "a" || options.SortMethod == "alpha" {
 		sort.Strings(matches)
 		logger.Debug("Sorted alphabetically")
 	}
+
 	if options.SortMethod == "l" || options.SortMethod == "len" {
 		sort.Slice(matches, func(i, j int) bool {
 			return len(matches[i]) < len(matches[j])
@@ -187,16 +202,22 @@ func main() {
 		matches = matches[0:options.Limit]
 		logger.Debug("Trimmed list to %d", options.Limit)
 	}
-	logger.Debug("%-25s %8.1fms\n", "Sorted and filtered:", float64(time.Since(startTime).Milliseconds()))
+	logger.Debug("%-60s %8.1fms\n", "Sorted and filtered:", float64(time.Since(startTime).Milliseconds()))
+	logger.Info("Displaying %d words", len(matches))
+	logger.Info("----")
 
 	// Print results
 	if options.JsonOutput {
-		jsonData, err := json.Marshal(matches)
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
+		if len(matches) == 0 {
+			fmt.Println("[]")
+		} else {
+			jsonData, err := json.Marshal(matches)
+			if err != nil {
+				logger.Error("Error:", err)
+				return
+			}
+			fmt.Println(string(jsonData))
 		}
-		fmt.Println(string(jsonData))
 	} else {
 		for _, match := range matches {
 			//logger.Info(match)
@@ -207,7 +228,7 @@ func main() {
 	logger.Info("----")
 	logger.Info("Done")
 
-	logger.Debug("%-25s %8.1fms", "Printed words: ", float64(time.Since(startTime).Milliseconds()))
+	logger.Debug("%-60s %8.1fms", "Printed words: ", float64(time.Since(startTime).Milliseconds()))
 
 }
 
@@ -216,6 +237,9 @@ func addWord(parent *Letter, word string) {
 	//
 	// It follows the tree until a new branch is needed and branches from there
 	// the parent node is the parent from the last branch or the root
+
+	// Convert to lowercase
+	word = strings.ToLower(word) + "\n"
 
 	for _, char := range word {
 		letter := string(char)
@@ -226,7 +250,6 @@ func addWord(parent *Letter, word string) {
 				Children: make(map[string]*Letter),
 			}
 		}
-
 		parent = parent.Children[letter]
 	}
 }
@@ -257,6 +280,7 @@ func getVariations(node *Letter, letters string, min int, max int) []string {
 	//
 	// It follows the tree until a new branch is needed and branches from there
 	// the parent node is the parent from the last branch or the root
+
 	var combinations []string
 	used := make([]bool, len(letters))
 	builder := strings.Builder{}
@@ -291,10 +315,12 @@ func searchVariant(node *Letter, letters string, used []bool, builder *strings.B
 		builder.WriteByte(letters[i])
 
 		// Keep checking that the word can possibly match
-		// Speeds up search byt not following words that will never be words
+		// Speeds up search by not following words that will never be words
 		if searchWord(node, builder.String()) {
-			//logger.Debug(builder.String() + "\n")
+			//fmt.Println(builder.String())
 			searchVariant(node, letters, used, builder, combinations, min, max)
+		} else {
+			//fmt.Println(builder.String())
 		}
 
 		used[i] = false
@@ -356,17 +382,19 @@ func getOptions() Options {
 	// Check for stdin
 	var lettersDefault string
 	var lettersRequired = true
+
 	stat, _ := os.Stdin.Stat()
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		// Get stdin but filter non A-z characters
+		// Get stdin and let to the default in options, setting option to optional
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			lettersDefault = scanner.Text()
-			re := regexp.MustCompile("[^A-Za-z]+")
+
+			// Remove control characters
+			re := regexp.MustCompile("`[[:cntrl:]]+")
 			lettersDefault = re.ReplaceAllString(scanner.Text(), "")
 			lettersRequired = false
 		}
-
 		if err := scanner.Err(); err != nil {
 			fmt.Println("Error reading stdin", err)
 			lettersRequired = true
@@ -386,8 +414,9 @@ func getOptions() Options {
 			Help: "Letters ",
 			Validate: func(args []string) error {
 				for _, arg := range args {
-					if match, _ := regexp.MatchString("^[A-z]+$", arg); !match {
-						return fmt.Errorf("number must be between A and Z")
+					re := regexp.MustCompile("[[:cntrl:]]")
+					if re.MatchString(arg) {
+						return fmt.Errorf("number must not contain contol characters")
 					}
 				}
 				return nil
@@ -397,8 +426,8 @@ func getOptions() Options {
 
 	var terminatingChar = parser.String("t", "terminator",
 		&argparse.Options{
-			Help:    "Any existing terminating characters ",
-			Default: ""})
+			Help:    "Any existing terminating characters on word files lines, Ex. \\r ",
+			Default: nil})
 
 	var wordFile = parser.File("f", "file", os.O_RDONLY, 0600,
 		&argparse.Options{
@@ -414,8 +443,7 @@ func getOptions() Options {
 	var sortReverse = parser.Flag("r", "sort-reverse",
 		&argparse.Options{
 			Help:    "Sort reversed",
-			Default: false,
-		})
+			Default: false})
 
 	var limit = parser.Int("", "limit",
 		&argparse.Options{
@@ -429,6 +457,16 @@ func getOptions() Options {
 	var max = parser.Int("", "max",
 		&argparse.Options{
 			Help:    "Length of the largest word",
+			Default: nil})
+
+	var jsonOutput = parser.Flag("j", "json",
+		&argparse.Options{
+			Help:    "Json output",
+			Default: false})
+
+	var filter = parser.String("", "filter",
+		&argparse.Options{
+			Help:    "Filter output with regex, Ex ^a.*[ety]$",
 			Default: nil})
 
 	var debugLevel = parser.Int("", "log-level",
@@ -446,18 +484,12 @@ func getOptions() Options {
 				}
 				return nil
 			},
-			Default: 20,
-		})
-
-	var jsonOutput = parser.Flag("j", "json",
-		&argparse.Options{
-			Help:    "Json output",
-			Default: false})
+			Default: 20})
 
 	// Parsing options
 	err = parser.Parse(os.Args)
 	if err != nil {
-		fmt.Print(parser.Usage(err))
+		fmt.Println(parser.Usage(err))
 		os.Exit(1)
 	}
 
@@ -474,9 +506,10 @@ func getOptions() Options {
 		Limit:           *limit,
 		Min:             *min,
 		Max:             *max,
-		DebugLevel:      *debugLevel,
 		SortMethod:      *sortMethod,
 		SortReverse:     *sortReverse,
 		JsonOutput:      *jsonOutput,
+		Filter:          *filter,
+		DebugLevel:      *debugLevel,
 	}
 }
