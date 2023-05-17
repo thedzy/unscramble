@@ -128,7 +128,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logger.Debug("Loaded file: %s\n", time.Since(startTime))
+	logger.Debug("%-25s %8.1fms\n", "Loaded file:", float64(time.Since(startTime).Milliseconds()))
 
 	// Split the content into lines
 	lines := splitByAnyHiddenCharacters(string(content))
@@ -139,11 +139,12 @@ func main() {
 	}
 
 	// Load the words into the tree
+	logger.Info("Loading %s words into dictionary", prettyFormatInt(len(lines)))
 	for _, line := range lines {
 		addWord(root, strings.ToLower(line+"\n"))
 	}
 
-	logger.Debug("Built word tree: %s\n", time.Since(startTime))
+	logger.Debug("%-25s %8.1fms\n", "Built word tree:", float64(time.Since(startTime).Milliseconds()))
 
 	// Debugging the tree
 	jsonBytes, err := json.MarshalIndent(root, "", "  ")
@@ -159,7 +160,7 @@ func main() {
 	logger.Info("Finding words of %d to %d length", options.Min, options.Max)
 	matches := getVariations(root, strings.ToLower(options.ScrambledString), options.Min, options.Max)
 
-	logger.Debug("Found matches: %s\n", time.Since(startTime))
+	logger.Debug("%-25s %8.1fms\n", "Found matches:", float64(time.Since(startTime).Milliseconds()))
 
 	logger.Info("Found %d words", len(matches))
 	logger.Info("----")
@@ -167,21 +168,26 @@ func main() {
 	// Sort/filter the matches
 	if options.SortMethod == "a" || options.SortMethod == "alpha" {
 		sort.Strings(matches)
+		logger.Debug("Sorted alphabetically")
 	}
 	if options.SortMethod == "l" || options.SortMethod == "len" {
 		sort.Slice(matches, func(i, j int) bool {
 			return len(matches[i]) < len(matches[j])
 		})
+		logger.Debug("Sorted by length")
 	}
 	if options.SortReverse {
 		// Reverse the order of elements in the list
 		sort.SliceStable(matches, func(i, j int) bool {
 			return i > j
 		})
+		logger.Debug("Reversed sorting")
 	}
 	if options.Limit > 0 && options.Limit < len(matches) {
 		matches = matches[0:options.Limit]
+		logger.Debug("Trimmed list to %d", options.Limit)
 	}
+	logger.Debug("%-25s %8.1fms\n", "Sorted and filtered:", float64(time.Since(startTime).Milliseconds()))
 
 	// Print results
 	if options.JsonOutput {
@@ -201,7 +207,7 @@ func main() {
 	logger.Info("----")
 	logger.Info("Done")
 
-	logger.Debug("Printed words: %s\n", time.Since(startTime))
+	logger.Debug("%-25s %8.1fms", "Printed words: ", float64(time.Since(startTime).Milliseconds()))
 
 }
 
@@ -266,7 +272,7 @@ func searchVariant(node *Letter, letters string, used []bool, builder *strings.B
 	// It takes the first letters and then starts a process for each subsequent letter until we hit the end
 
 	// If the word is in range and if it can be matched fully
-	if builder.Len() >= min && builder.Len() <= max {
+	if builder.Len() >= min && builder.Len() <= max && builder.Len() != 0 {
 		if searchWord(node, builder.String()+"\n") {
 			if !inList(*combinations, builder.String()) {
 				*combinations = append(*combinations, builder.String())
@@ -301,7 +307,8 @@ func searchVariant(node *Letter, letters string, used []bool, builder *strings.B
 func inList(list []string, str string) bool {
 	// inList: is the word already in a list/
 	//
-	// I could find a way to do this natively like in Python, it checks that a word is not already in a list
+	// I couldn't find a way to do this natively like in Python, it checks that a word is not already in a list
+
 	for _, item := range list {
 		if item == str {
 			return true
@@ -315,8 +322,24 @@ func splitByAnyHiddenCharacters(input string) []string {
 	//
 	// Now it shouldn't matter what platform you are on
 	//https://pkg.go.dev/regexp/syntax
+
 	regex := regexp.MustCompile(`[[:cntrl:]]+`)
 	return regex.Split(input, -1)
+}
+
+func prettyFormatInt(number int) string {
+	// prettyFormatInt: I wanted to print a number with comma separators
+
+	digits := strconv.Itoa(number)
+	var groups []string
+	for x := len(digits); x >= 1; x -= 3 {
+		if x >= 3 {
+			groups = append([]string{digits[x-3 : x]}, groups...)
+		} else {
+			groups = append([]string{digits[0:x]}, groups...)
+		}
+	}
+	return strings.Join(groups, ",")
 }
 
 func getOptions() Options {
@@ -377,7 +400,7 @@ func getOptions() Options {
 			Help:    "Any existing terminating characters ",
 			Default: ""})
 
-	var wordFile = parser.File("f", "file", os.O_RDWR, 0600,
+	var wordFile = parser.File("f", "file", os.O_RDONLY, 0600,
 		&argparse.Options{
 			Help:    "Words file ",
 			Default: filepath.Join(dir, "collins_scrabble_words_2019.txt")})
@@ -396,7 +419,7 @@ func getOptions() Options {
 
 	var limit = parser.Int("", "limit",
 		&argparse.Options{
-			Help:    "Limit to x results"})
+			Help: "Limit to x results"})
 
 	var min = parser.Int("", "min",
 		&argparse.Options{
