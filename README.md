@@ -77,7 +77,12 @@ No known bugs.  Works.
 - Code cleanup after finding some suggestions
 - Grammar!
 ### 1.2.1
-- Fixed annoying blank space at begining of line
+- Fixed annoying blank space at beginning of line
 ### 1.3
 - Added stdin
 - Added a limit option
+### 1.3
+- Fix: Opening files as read only
+- Print amount of words we are comparing against
+- Improved debugging message
+- Prevent zero length string from matching
