@@ -14,8 +14,10 @@ Example:
 ```
 ``` ignorelang
 Starting
+Loading 279,496 words into dictionary
 Finding words of 5 to 5 length
 Found 4 words
+Displaying 4 words
 ----
 expel
 maple
@@ -38,6 +40,7 @@ Example:
   "schmelz"
 ]
 ```
+Example:
 ```bash
 echo "aeiouwx" | go run ./unscramble.go --sort l --limit 10 2>/dev/null
 ```
@@ -52,6 +55,14 @@ wo
 ox
 xu
 ai
+```
+Example:
+```bash
+echo aabcdfghjklmnpqrstvwxyz | ./unscramble --log-level 30 -j --filter "^
+a.*[ty]$"
+```
+``` json
+["abaft","ably","abray","aby","achy","act","adapt","adry","aft","agast","aghast","agly","alant","alary","alay","alky","alt","alway","ambary","ambry","amply","analyst","anarchy","angary","angry","angst","angsty","ant","antsy","any","apart","apathy","apay","apt","aptly","arblast","archly","archway","arhat","army","arsy","art","artsy","arty","ary","ashplant","ashtray","ashy","askant","aslant","asphalt","astray","asway","at","ataxy","avant","avast","away","awfy","awmry","awny","awry","ay"]
 ```
 
 ## Why?
