@@ -86,3 +86,8 @@ No known bugs.  Works.
 - Print amount of words we are comparing against
 - Improved debugging message
 - Prevent zero length string from matching
+### 1.5
+- Added option to filter results with a regex
+- Fix: Empty results in json does not output null
+- Allow all by control characters in letters
+- Code improvements
