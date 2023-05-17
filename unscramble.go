@@ -495,7 +495,7 @@ func getOptions() Options {
 
 	// Display version number
 	if *version {
-		print("1.0", "\n")
+		print("1.5", "\n")
 		os.Exit(0)
 	}
 
