@@ -81,7 +81,7 @@ No known bugs.  Works.
 ### 1.3
 - Added stdin
 - Added a limit option
-### 1.3
+### 1.4
 - Fix: Opening files as read only
 - Print amount of words we are comparing against
 - Improved debugging message
