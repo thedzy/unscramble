@@ -58,8 +58,7 @@ ai
 ```
 Example:
 ```bash
-echo aabcdfghjklmnpqrstvwxyz | ./unscramble --log-level 30 -j --filter "^
-a.*[ty]$"
+echo aabcdfghjklmnpqrstvwxyz | ./unscramble --log-level 30 -j --filter "^a.*[ty]$"
 ```
 ``` json
 ["abaft","ably","abray","aby","achy","act","adapt","adry","aft","agast","aghast","agly","alant","alary","alay","alky","alt","alway","ambary","ambry","amply","analyst","anarchy","angary","angry","angst","angsty","ant","antsy","any","apart","apathy","apay","apt","aptly","arblast","archly","archway","arhat","army","arsy","art","artsy","arty","ary","ashplant","ashtray","ashy","askant","aslant","asphalt","astray","asway","at","ataxy","avant","avast","away","awfy","awmry","awny","awry","ay"]
